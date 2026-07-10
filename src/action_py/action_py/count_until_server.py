@@ -29,12 +29,20 @@ class CountUntilServerNode(Node):
     def goal_callback(self, goal_request: CountUntil.Goal):
         self.get_logger().info("Received a goal")
 
-        #The Policy here is: check if the goal still active and refuse the new if it was
+        #The Policy here is: preempt the  existing  goal when receiving new goal
         with self.goal_lock_:
             if self.goal_handel_ is not None and self.goal_handel_.is_active:
-                self.get_logger().info("the goal is still active, rejecting the new goal")
-                return GoalResponse.REJECT
+                self.get_logger().info("the current goal is aborted for the new goal")
+                self.goal_handel_.abort()
+            
+            
 
+        
+        #The Policy here is: check if the goal still active and refuse the new if it was
+        # with self.goal_lock_:
+        #     if self.goal_handel_ is not None and self.goal_handel_.is_active:
+        #         self.get_logger().info("the goal is still active, rejecting the new goal")
+        #         return GoalResponse.REJECT
 
 
         if goal_request.target_number < 0:
@@ -61,6 +69,9 @@ class CountUntilServerNode(Node):
         result = CountUntil.Result()
         counter =0
         for i in range(target_number):
+            if not goal_handle.is_active:
+                result.reached_number = counter
+                return result
             if goal_handle.is_cancel_requested:
                 self.get_logger().info("canceling the goal")
                 goal_handle.canceled()
