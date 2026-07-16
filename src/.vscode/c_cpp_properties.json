@@ -1,0 +1,25 @@
+{
+  "configurations": [
+    {
+      "name": "ROS 2 Jazzy",
+      "includePath": [
+        "~/ros2_ws/**",
+        "/opt/ros/jazzy/include/**",
+        "~/ros2_ws/install/**"
+      ],
+      "browse": {
+        "path": [
+          "~/ros2_ws/**",
+          "/opt/ros/jazzy/include/**",
+          "~/ros2_ws/install/**"
+        ],
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "compilerPath": "/usr/bin/g++",
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "linux-gcc-x64"
+    }
+  ],
+  "version": 4
+}
