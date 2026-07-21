@@ -1,25 +1,55 @@
 #!/usr/bin/env python3
 import rclpy
 import time
+import threading
 from rclpy.node import Node
 from rclpy.action import ActionServer
-from rclpy.action.server import ServerGoalHandle
+from rclpy.action.server import ServerGoalHandle, GoalResponse, CancelResponse
 from my_robot_interfaces.action import MoveRobot
+from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 
 class MoveRobotServerNode(Node): 
     def __init__(self):
         super().__init__("move_robot_server")
+        self.goal_lock_ = threading.Lock()
+        self.goal_handle_: ServerGoalHandle = None
         self.robot_position_ = 50
         self.move_robot_server_ = ActionServer(
             self,
             MoveRobot,
             "move_robot",
-            execute_callback=self.execute_callback)
+            goal_callback=self.goal_callback,
+            execute_callback=self.execute_callback,
+            cancel_callback=self.cancel_callback,
+            callback_group=ReentrantCallbackGroup())
         self.get_logger().info("Action server has been started")
         self.get_logger().info("Robot position: " + str(self.robot_position_))
+    
+
+    def goal_callback(self, goal_request: MoveRobot.Goal):
+        self.get_logger().info("Receive a new goal")
+        if goal_request.position not in range(0,101) or goal_request.velocity <= 0:
+            self.get_logger().warn("Reject the goal because it is invalid")
+            return GoalResponse.REJECT
+        
+        #the goal is valid, abort previous goal and accept new goal
+        if self.goal_handle_ is not None and self.goal_handle_.is_active:
+            self.goal_handle_.abort() 
+
+
+
+        self.get_logger().info("Accept the goal because it is valid")
+        return GoalResponse.ACCEPT
+    
+    def cancel_callback(self, goal_handle:ServerGoalHandle):
+        self.get_logger().info("Received the cancel request")
+        return CancelResponse.ACCEPT
         
     def execute_callback(self, goal_handle: ServerGoalHandle):
+        with self.goal_lock_:
+            self.goal_handle_ = goal_handle
         goal_position = goal_handle.request.position
         velocity = goal_handle.request.velocity
 
@@ -28,8 +58,23 @@ class MoveRobotServerNode(Node):
 
         self.get_logger().info("Execute the goal")
         while rclpy.ok():
-            diff = goal_position - self.robot_position_
 
+            if not goal_handle.is_active:
+                result.position = self.robot_position_
+                result.message = "Preempted by another goal"
+                return result
+            
+            if goal_handle.is_cancel_requested:
+                result.position = self.robot_position_
+                if goal_position == self.robot_position_:
+                    result.message = "Success"
+                    goal_handle.succeed()
+                else:
+                    result.message = "Canceled"
+                    goal_handle.canceled()
+                return result
+            
+            diff = goal_position - self.robot_position_
             if diff == 0:
                 result.position = self.robot_position_
                 result.message = "Success"
@@ -57,7 +102,7 @@ class MoveRobotServerNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = MoveRobotServerNode() 
-    rclpy.spin(node)
+    rclpy.spin(node, MultiThreadedExecutor())
     rclpy.shutdown()
 
 
