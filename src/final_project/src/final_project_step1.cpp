@@ -11,10 +11,10 @@ public:
         turtle_name_ = this->get_parameter("turtle_name").as_string();
         cb_group_ = this->create_callback_group(rclcpp::CallbackGroupType::Reentrant);
         spawn_turtle_client_ = this->create_client<turtlesim::srv::Spawn>(
-            "/spawn",rmw_qos_profile_default, cb_group_);
+            "/spawn",rclcpp::ServicesQoS(), cb_group_);
         
         kill_turtle_client_ = this->create_client<turtlesim::srv::Kill>(
-            "/kill", rmw_qos_profile_default, cb_group_);
+            "/kill", rclcpp::ServicesQoS(), cb_group_);
 
         spawn_turtle_thread_ = std::thread(std::bind(&TurtleController::spawn_turtle, this));
     }
